@@ -27,6 +27,7 @@ import ftplib
 import os
 import datetime
 import json
+import time
 
 class Ftp(object):
 	def __init__(self, host, port, username, password, ftpRootDir):
@@ -37,10 +38,18 @@ class Ftp(object):
 		self.ftpRootDir = ftpRootDir
 
 	def uploadTo(self, localRootDir, currentFullPath):
-
+		start = time.time()
 		session = ftplib.FTP()
-		session.connect(self.host, self.port)
-		session.login(self.username, self.password)
+		try:
+			session.connect(self.host, self.port)
+		except ftplib.all_errors as e:
+			sublime.error_message("[Simple FTP Deploy]\nCould not connect to " + self.host + ":" + str(self.port) + "\n" + str(e))
+			return
+		try:
+			session.login(self.username, self.password)
+		except ftplib.all_errors as e:
+			sublime.error_message("[Simple FTP Deploy]\nCould not login to " + self.host + ":" + str(self.port) + "\n" + str(e))
+			return
 
 		currentPath = os.path.dirname(currentFullPath)
 		# Remove full path and remove \\
@@ -59,30 +68,27 @@ class Ftp(object):
 		file.close()
 		session.quit()
 
-		time = datetime.datetime.now().strftime('%X')
-		msg = '[Deployed {0}]: {1}'.format(time, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'))
+		end = time.time()
+		ctime = datetime.datetime.now().strftime('%X')
+		msg = '[Deployed {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'), round((end - start)*1000))
 		print(msg)
 		sublime.status_message(msg)
 
 # Save file event listener
 class SaveEventListener(sublime_plugin.EventListener):
 	def on_post_save_async(self, view):
-
 		if view.window().project_data():
-			for openFolder in view.window().project_data()['folders']:
-				firstOpenFolder = openFolder['path']
-
+			for openFolder in view.window().folders():
 				configFileName = 'simple-ftp-deploy.json'
-				configFile = os.path.join(firstOpenFolder, configFileName)
+				configFile = os.path.join(openFolder, configFileName)
 				# Deploy if exists config file in root folder
 				if os.path.isfile(configFile):
 					# Read the config
 					with open(configFile) as data:
 						config = json.load(data)
 						ftp = Ftp(config['host'], config['port'] if 'port'in config else 21, config['username'], config['password'], config['rootDirectory'] if 'rootDirectory' in config else '')
-						
 						# Ignore config file
 						if os.path.basename(view.file_name()) != configFileName:
 							# Start upload if the file is located in open folder
-							if firstOpenFolder in view.file_name():
-								ftp.uploadTo(firstOpenFolder, view.file_name())
+							if openFolder in view.file_name():
+								ftp.uploadTo(openFolder, view.file_name())
