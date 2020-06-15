@@ -29,6 +29,25 @@ import datetime
 import json
 import time
 
+DIALOG_TITLE='[Simple FTP Deploy]\n'
+
+def cdRecursivelly(session, cdDir, config, prompt = True):
+	if cdDir != "":
+		try:
+			session.cwd(cdDir)
+		except ftplib.all_errors as e:
+			if str(e).split(None, 1)[0]!="550":
+				sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to ' + cdDir + ':\n' + e)
+				return False
+			if prompt and not config['autoCreateDirectory'] if 'autoCreateDirectory' in config else True:
+				create = sublime.ok_cancel_dialog(DIALOG_TITLE + 'Directory  \'' + cdDir + '\' does not exists, do you want to create it?', 'Yes')
+				if not create:
+					return False
+			cdRecursivelly(session, "/".join(cdDir.split("/")[:-1]), config, False)
+			session.mkd(cdDir)
+			session.cwd(cdDir)
+		return True
+
 class Ftp(object):
 	def __init__(self, host, port, username, password, ftpRootDir):
 		self.host = host
@@ -37,18 +56,18 @@ class Ftp(object):
 		self.password = password
 		self.ftpRootDir = ftpRootDir
 
-	def uploadTo(self, localRootDir, currentFullPath):
+	def uploadTo(self, localRootDir, currentFullPath, config):
 		start = time.time()
 		session = ftplib.FTP()
 		try:
 			session.connect(self.host, self.port)
 		except ftplib.all_errors as e:
-			sublime.error_message("[Simple FTP Deploy]\nCould not connect to " + self.host + ":" + str(self.port) + "\n" + str(e))
+			sublime.error_message(DIALOG_TITLE + "Could not connect to " + self.host + ":" + str(self.port) + "\n" + str(e))
 			return
 		try:
 			session.login(self.username, self.password)
 		except ftplib.all_errors as e:
-			sublime.error_message("[Simple FTP Deploy]\nCould not login to " + self.host + ":" + str(self.port) + "\n" + str(e))
+			sublime.error_message(DIALOG_TITLE + "Could not login to " + self.host + ":" + str(self.port) + "\n" + str(e))
 			return
 
 		currentPath = os.path.dirname(currentFullPath)
@@ -60,7 +79,10 @@ class Ftp(object):
 
 		file = open(currentFullPath, 'rb')
 		# Set ftp directory
-		session.cwd(fullFtpPath)
+		success = cdRecursivelly(session,fullFtpPath,config)
+		if not success:
+			sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to \'' + fullFtpPath + '\'')
+			return
 
 		currentFileName = os.path.basename(currentFullPath)
 		session.storbinary('STOR ' + currentFileName, file)
@@ -85,10 +107,15 @@ class SaveEventListener(sublime_plugin.EventListener):
 				if os.path.isfile(configFile):
 					# Read the config
 					with open(configFile) as data:
-						config = json.load(data)
+						try:
+							config = json.load(data)
+						except Exception as e:
+							sublime.error_message(DIALOG_TITLE + 'Could not load config file:\n' + str(e))
+							return
+						
 						ftp = Ftp(config['host'], config['port'] if 'port'in config else 21, config['username'], config['password'], config['rootDirectory'] if 'rootDirectory' in config else '')
 						# Ignore config file
 						if os.path.basename(view.file_name()) != configFileName:
 							# Start upload if the file is located in open folder
 							if openFolder in view.file_name():
-								ftp.uploadTo(openFolder, view.file_name())
+								ftp.uploadTo(openFolder, view.file_name(), config)
