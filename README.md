@@ -22,24 +22,26 @@
 ## Configuration
 
 Example `simple-ftp-deploy.json` file:
-
-    {
-        "host": "localhost",
-        "username": "user",
-        "password": "pass"
-    }
+```json
+{
+    "host": "localhost",
+    "username": "user",
+    "password": "pass"
+}
+```
 
 ### Format
 The format is JSON, so every property consists of a key-value pair
-
-    {
-        "host": "localhost",
-        "port": 21, 
-        "username": "user",
-        "password": "pass",
-        "rootDirectory": "/path/",
-        "autoCreateDirectory": false
-    }
+```json
+{
+    "host": "localhost",
+    "port": 21, 
+    "username": "user",
+    "password": "pass",
+    "rootDirectory": "/path/",
+    "autoCreateDirectory": false
+}
+```
 
 ### Properties
 
