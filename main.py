@@ -103,7 +103,7 @@ class SaveEventListener(sublime_plugin.EventListener):
 			for openFolder in view.window().folders():
 				configFileName = 'simple-ftp-deploy.json'
 				configFile = os.path.join(openFolder, configFileName)
-				# Ignore config file and chceck if file is in open folder
+				# Ignore config file and check if file is in opened folder
 				if os.path.basename(view.file_name()) != configFileName and openFolder in view.file_name():
 					# Deploy if exists config file in root folder
 					if os.path.isfile(configFile):
@@ -114,6 +114,19 @@ class SaveEventListener(sublime_plugin.EventListener):
 							except Exception as e:
 								sublime.error_message(DIALOG_TITLE + 'Could not load config file:\n' + str(e))
 								return
-							
-							ftp = Ftp(config['host'], config['port'] if 'port'in config else 21, config['username'], config['password'], config['rootDirectory'] if 'rootDirectory' in config else '')
+
+							filename, extension = os.path.splitext(view.file_name())
+							basename = os.path.basename(view.file_name())
+							# Ignored filenames
+							if basename in config['ignoredFilenames'] if 'ignoredFilenames' in config else False:
+								return
+							# Ignored extensions
+							if extension in config['ignoredExtensions'] if 'ignoredExtensions' in config else False:
+								return
+							#Ignored folders
+							for folder in config['ignoredFolders'] if 'ignoredFolders' in config else []:
+								if folder in filename:
+									return
+							# Upload 
+							ftp = Ftp(config['host'], config['port'] if 'port' in config else 21, config['username'], config['password'], config['rootDirectory'] if 'rootDirectory' in config else '')
 							ftp.uploadTo(openFolder, view.file_name(), config)
