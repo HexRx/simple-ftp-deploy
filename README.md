@@ -31,7 +31,7 @@ Example `simple-ftp-deploy.json` file:
 ```
 
 ### Format
-The format is JSON, so every property consists of a key-value pair
+The format is [JSON](https://www.json.org), so every property consists of a key-value pair
 ```json
 {
     "host": "localhost",
@@ -39,7 +39,10 @@ The format is JSON, so every property consists of a key-value pair
     "username": "user",
     "password": "pass",
     "rootDirectory": "/path/",
-    "autoCreateDirectory": false
+    "autoCreateDirectory": false,
+    "ignoredFilenames": ["example.py", "anotherFilename.json"],
+    "ignoredExtensions": [".ignore", ".txt"],
+    "ignoredFolders": ["ignore", "IGNORE"]
 }
 ```
 
@@ -57,12 +60,21 @@ The username
 `"password"` *string*  
 The password
 
-`"rootDirectory"` *string, optional (default: `/`)*  
+`"rootDirectory"` *string, optional (default: `"/"`)*  
 The FTP path to deploy.  
 **Example:** in the root of FTP you have three folders `site1`, `site2`, `site3` and if you need to upload in `site2` folder, you must set this property to `/site2`, because if you skip this property, files will be upload to the root of FTP
 
 `"autoCreateDirectory"` *boolean, optional (default: `false`)*  
 Whatever to automatically create a directory if doesn't exist and don't prompt user for acceptation.
+
+`"ignoredFilenames"` *array, optional (default: `[]`)*  
+List of filenames, that are ignored and not uploaded. Note that `"simple-ftp-deploy.json"` is ALWAYS ignored. **Case-sensitive**
+
+`"ignoredExtensions"` *array, optional (default: `[]`)*  
+List of extensions to ignore. Note that it only check last extension (so `file.tar.gz` has extension `".gz"`) and if you want to ignore files like `.htaccess`, this file has no extension => use `"ignoredFilenames"` instead. **Case-sensitive**
+
+`"ignoredFolders"` *array, optional (default: `[]`)*  
+List of folder names to ignore. The file is ingored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
 
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
