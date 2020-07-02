@@ -31,7 +31,21 @@ import time
 
 DIALOG_TITLE='[Simple FTP Deploy]\n'
 
-def cdRecursivelly(session, cdDir, config, prompt = True):
+CONSOLE_PREFIX='[Simple FTP Deploy] '
+
+REQUIRED_FIELDS=['host','username','password']
+
+CONFIG_FILE_NAME='simple-ftp-deploy.json'
+
+config = {}
+
+def getSetting(name, defaultValue = None):
+	if config and name in config:
+		return config[name]
+	else:
+		return defaultValue
+
+def cdRecursivelly(session, cdDir, prompt = True):
 	if cdDir != "":
 		try:
 			session.cwd(cdDir)
@@ -39,11 +53,11 @@ def cdRecursivelly(session, cdDir, config, prompt = True):
 			if str(e).split(None, 1)[0]!="550":
 				sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to ' + cdDir + ':\n' + e)
 				return False
-			if prompt and not config['autoCreateDirectory'] if 'autoCreateDirectory' in config else True:
+			if prompt and not getSetting('autoCreateDirectory'):
 				create = sublime.ok_cancel_dialog(DIALOG_TITLE + 'Directory  \'' + cdDir + '\' does not exists, do you want to create it?', 'Yes')
 				if not create:
 					return False
-			cdRecursivelly(session, "/".join(cdDir.split("/")[:-1]), config, False)
+			cdRecursivelly(session, "/".join(cdDir.split("/")[:-1]), False)
 			session.mkd(cdDir)
 			session.cwd(cdDir)
 		return True
@@ -56,19 +70,29 @@ class Ftp(object):
 		self.password = password
 		self.ftpRootDir = ftpRootDir
 
-	def uploadTo(self, localRootDir, currentFullPath, config):
+	def connect(self):
 		start = time.time()
-		session = ftplib.FTP()
+		self.session = ftplib.FTP()
 		try:
-			session.connect(self.host, self.port)
+			self.session.connect(self.host, self.port)
 		except ftplib.all_errors as e:
 			sublime.error_message(DIALOG_TITLE + "Could not connect to " + self.host + ":" + str(self.port) + "\n" + str(e))
 			return
 		try:
-			session.login(self.username, self.password)
+			self.session.login(self.username, self.password)
 		except ftplib.all_errors as e:
 			sublime.error_message(DIALOG_TITLE + "Could not login to " + self.host + ":" + str(self.port) + "\n" + str(e))
 			return
+		end = time.time()
+		self._connectTime = round((end - start)*1000)
+
+		ctime = datetime.datetime.now().strftime('%X')
+		msg = '[Connected {0}]: {1} ({2}ms)'.format(ctime, self.host + ":" + str(self.port), self._connectTime)
+		print(CONSOLE_PREFIX + msg)
+		sublime.status_message(msg)
+
+	def uploadTo(self, localRootDir, currentFullPath):
+		start = time.time()
 
 		currentPath = os.path.dirname(currentFullPath)
 		# Remove full path and remove \\
@@ -79,21 +103,56 @@ class Ftp(object):
 
 		file = open(currentFullPath, 'rb')
 		# Set ftp directory
-		success = cdRecursivelly(session,fullFtpPath,config)
+		success = cdRecursivelly(self.session,fullFtpPath)
 		if not success:
 			sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to \'' + fullFtpPath + '\'')
 			return
 
 		currentFileName = os.path.basename(currentFullPath)
-		session.storbinary('STOR ' + currentFileName, file)
+		self.session.storbinary('STOR ' + currentFileName, file)
 
 		file.close()
-		session.quit()
+		self.session.quit()
+
+		del self.session
 
 		end = time.time()
 		ctime = datetime.datetime.now().strftime('%X')
 		msg = '[Deployed {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'), round((end - start)*1000))
-		print(msg)
+		print(CONSOLE_PREFIX + msg)
+		sublime.status_message(msg)
+
+	def deleteFile(self, localRootDir, currentFullPath):
+		start = time.time()
+
+		currentPath = os.path.dirname(currentFullPath)
+		# Remove full path and remove \\
+		localFilePath = currentPath.replace(localRootDir, '')[1:]
+
+		# Replace win path to unix path
+		fullFtpPath = os.path.join(self.ftpRootDir, localFilePath).replace('\\', '/')
+
+		currentFileName = os.path.basename(currentFullPath)
+
+		try:
+			self.session.cwd(fullFtpPath)
+		except ftplib.all_errors as e:
+			sublime.error_message(DIALOG_TITLE + 'Could not delete file \'' + fullFtpPath + '/' + currentFileName + '\':\n' + str(e))
+
+		try:
+			self.session.delete(currentFileName)
+		except ftplib.all_errors as e:
+			sublime.error_message(DIALOG_TITLE + 'Could not delete file \'' + fullFtpPath + '/' + currentFileName + '\':\n' + str(e))
+			return
+
+		self.session.quit()
+
+		del self.session
+
+		end = time.time()
+		ctime = datetime.datetime.now().strftime('%X')
+		msg = '[Deleted {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'), round((end - start)*1000))
+		print(CONSOLE_PREFIX + msg)
 		sublime.status_message(msg)
 
 # Save file event listener
@@ -101,16 +160,19 @@ class SaveEventListener(sublime_plugin.EventListener):
 	def on_post_save_async(self, view):
 		if view.window().project_data():
 			for openFolder in view.window().folders():
-				configFileName = 'simple-ftp-deploy.json'
-				configFile = os.path.join(openFolder, configFileName)
+				configFile = os.path.join(openFolder, CONFIG_FILE_NAME)
 				# Ignore config file and check if file is in opened folder
-				if os.path.basename(view.file_name()) != configFileName and openFolder in view.file_name():
+				if os.path.basename(view.file_name()) != CONFIG_FILE_NAME and openFolder in view.file_name():
 					# Deploy if exists config file in root folder
 					if os.path.isfile(configFile):
 						# Read the config
 						with open(configFile) as data:
+							global config
 							try:
 								config = json.load(data)
+								for field in REQUIRED_FIELDS:
+									if not field in config:
+										raise Exception('Missing required field "{}"'.format(field))
 							except Exception as e:
 								sublime.error_message(DIALOG_TITLE + 'Could not load config file:\n' + str(e))
 								return
@@ -118,15 +180,85 @@ class SaveEventListener(sublime_plugin.EventListener):
 							filename, extension = os.path.splitext(view.file_name())
 							basename = os.path.basename(view.file_name())
 							# Ignored filenames
-							if basename in config['ignoredFilenames'] if 'ignoredFilenames' in config else False:
+							if basename in getSetting('ignoredFilenames', []):
 								return
 							# Ignored extensions
-							if extension in config['ignoredExtensions'] if 'ignoredExtensions' in config else False:
+							if extension in getSetting('ignoredExtensions', []):
 								return
 							#Ignored folders
-							for folder in config['ignoredFolders'] if 'ignoredFolders' in config else []:
+							for folder in getSetting('ignoredFolders', []):
 								if folder in filename:
 									return
 							# Upload 
-							ftp = Ftp(config['host'], config['port'] if 'port' in config else 21, config['username'], config['password'], config['rootDirectory'] if 'rootDirectory' in config else '')
-							ftp.uploadTo(openFolder, view.file_name(), config)
+							ftp = Ftp(config['host'], getSetting('port', 21), config['username'], config['password'], getSetting('rootDirectory', ''))
+							ftp.connect()
+							ftp.uploadTo(openFolder, view.file_name())
+
+# ==============
+# Delete file and folder, new folder and rename handlers
+# WARNING: HIGHLY EXPERIMENT, OVERRIDES DEFAULT DELETE HANDLERS (imported from side_bar.py from Default.sublime-package)
+# ==============
+from Default.side_bar import *
+import functools
+
+class DeleteFileCommand(sublime_plugin.WindowCommand):
+	def run(self, files):
+		if len(files) == 1:
+			message = "Delete File %s from FTP too?" % files[0]
+		else:
+			message = "Delete %d Files from FTP too?" % len(files)
+
+		deleteFromFTP = False
+		if sublime.ok_cancel_dialog(message, "Delete") == True:
+			deleteFromFTP = True
+
+		# Import send2trash on demand, to avoid initialising ctypes for as long as possible
+		import Default.send2trash as send2trash
+		for f in files:
+			v = self.window.find_open_file(f)
+			if v != None and not v.close():
+				return
+
+			send2trash.send2trash(f)
+			# Delete from FTP too, if user accepts
+			if not deleteFromFTP:
+				continue
+
+			if self.window.project_data():
+				for openFolder in self.window.folders():
+					configFile = os.path.join(openFolder, CONFIG_FILE_NAME)
+					# Ignore config file and check if file is in opened folder
+					if os.path.basename(f) != CONFIG_FILE_NAME and openFolder in f:
+						# Deploy if exists config file in root folder
+						if os.path.isfile(configFile):
+							# Read the config
+							with open(configFile) as data:
+								global config
+								try:
+									config = json.load(data)
+									for field in REQUIRED_FIELDS:
+										if not field in config:
+											raise Exception('Missing required field "{}"'.format(field))
+								except Exception as e:
+									sublime.error_message(DIALOG_TITLE + 'Could not load config file:\n' + str(e))
+									return
+
+								filename, extension = os.path.splitext(f)
+								basename = os.path.basename(f)
+								# Ignored filenames
+								if basename in getSetting('ignoredFilenames', []):
+									return
+								# Ignored extensions
+								if extension in getSetting('ignoredExtensions', []):
+									return
+								#Ignored folders
+								for folder in getSetting('ignoredFolders', []):
+									if folder in filename:
+										return
+								# Upload 
+								ftp = Ftp(config['host'], getSetting('port', 21), config['username'], config['password'], getSetting('rootDirectory', ''))
+								ftp.connect()
+								ftp.deleteFile(openFolder, f)
+
+	def is_visible(self, files):
+		return len(files) > 0
