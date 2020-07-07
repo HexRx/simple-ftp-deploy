@@ -39,6 +39,8 @@ CONFIG_FILE_NAME='simple-ftp-deploy.json'
 
 config = {}
 
+FTP_sessions_cache=[]
+
 def getSetting(name, defaultValue = None):
 	if config and name in config:
 		return config[name]
@@ -51,7 +53,7 @@ def cdRecursivelly(session, cdDir, prompt = True):
 			session.cwd(cdDir)
 		except ftplib.all_errors as e:
 			if str(e).split(None, 1)[0]!="550":
-				sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to ' + cdDir + ':\n' + e)
+				sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to ' + cdDir + ':\n' + str(e))
 				return False
 			if prompt and not getSetting('autoCreateDirectory'):
 				create = sublime.ok_cancel_dialog(DIALOG_TITLE + 'Directory  \'' + cdDir + '\' does not exists, do you want to create it?', 'Yes')
@@ -70,9 +72,40 @@ class Ftp(object):
 		self.password = password
 		self.ftpRootDir = ftpRootDir
 
+	def checkSession(self):
+		if not hasattr(self, 'session'):
+			print(CONSOLE_PREFIX + 'WARNING: atempt to use session before \'connect()\', connecting')
+			self.connect()
+
 	def connect(self):
 		start = time.time()
-		self.session = ftplib.FTP()
+
+		fromCache = False
+		# If cached, return from cache
+		for cache in FTP_sessions_cache if getSetting("sessionCacheEnabled", True) else []:
+			# Check if session expired
+			if cache["timestamp"] + cache["timeout"] < time.time():
+				# Delete old unused cache to free up memory
+				del cache
+			# Else check if entry equals to out needs
+			elif cache["host"] == self.host and cache["port"] == self.port and cache["username"] == self.username and cache["password"] == self.password:
+				self.session = cache["session"]
+				cache["timestamp"] = time.time()
+				end = time.time()
+				self._connectTime = round((end - start)*1000)
+
+				ctime = datetime.datetime.now().strftime('%X')
+				msg = '[Connected {0}]: {1} ({2}ms; from cache)'.format(ctime, self.host + ":" + str(self.port), self._connectTime)
+				print(CONSOLE_PREFIX + msg)
+				sublime.status_message(msg)
+				fromCache = True
+				# Do not return yet, check for other expired connections to free up memory
+
+		# Return if session set
+		if fromCache:
+			return
+		# Not in cache, create new session
+		self.session = ftplib.FTP(timeout=getSetting("connectionTimeout",600))
 		try:
 			self.session.connect(self.host, self.port)
 		except ftplib.all_errors as e:
@@ -91,15 +124,31 @@ class Ftp(object):
 		print(CONSOLE_PREFIX + msg)
 		sublime.status_message(msg)
 
+		# Add session to cache
+		if not getSetting("sessionCacheEnabled", True):
+			return
+		FTP_sessions_cache.append({
+			"host": self.host,
+			"port": self.port,
+			"username": self.username,
+			"password": self.password,
+			"timestamp": time.time(),
+			"timeout": getSetting("connectionTimeout", 600),
+			"session": self.session
+		})
+
+	def parsePath(self, rootDir, fullPath):
+		# Remove full path and remove \\
+		localFilePath = os.path.dirname(fullPath).replace(rootDir, '')[1:]
+
+		return os.path.join(self.ftpRootDir, localFilePath).replace('\\', '/'), os.path.basename(fullPath)
+
 	def uploadTo(self, localRootDir, currentFullPath):
+		self.checkSession()
+
 		start = time.time()
 
-		currentPath = os.path.dirname(currentFullPath)
-		# Remove full path and remove \\
-		localFilePath = currentPath.replace(localRootDir, '')[1:]
-
-		# Replace win path to unix path
-		fullFtpPath = os.path.join(self.ftpRootDir, localFilePath).replace('\\', '/')
+		fullFtpPath, currentFileName = self.parsePath(localRootDir, currentFullPath)
 
 		file = open(currentFullPath, 'rb')
 		# Set ftp directory
@@ -108,31 +157,22 @@ class Ftp(object):
 			sublime.error_message(DIALOG_TITLE + 'Could not set current working dir to \'' + fullFtpPath + '\'')
 			return
 
-		currentFileName = os.path.basename(currentFullPath)
 		self.session.storbinary('STOR ' + currentFileName, file)
 
 		file.close()
-		self.session.quit()
-
-		del self.session
 
 		end = time.time()
 		ctime = datetime.datetime.now().strftime('%X')
-		msg = '[Deployed {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'), round((end - start)*1000))
+		msg = '[Deployed {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, currentFileName).replace('\\', '/'), round((end - start)*1000))
 		print(CONSOLE_PREFIX + msg)
 		sublime.status_message(msg)
 
 	def deleteFile(self, localRootDir, currentFullPath):
+		self.checkSession()
+
 		start = time.time()
 
-		currentPath = os.path.dirname(currentFullPath)
-		# Remove full path and remove \\
-		localFilePath = currentPath.replace(localRootDir, '')[1:]
-
-		# Replace win path to unix path
-		fullFtpPath = os.path.join(self.ftpRootDir, localFilePath).replace('\\', '/')
-
-		currentFileName = os.path.basename(currentFullPath)
+		fullFtpPath, currentFileName = self.parsePath(localRootDir, currentFullPath)
 
 		try:
 			self.session.cwd(fullFtpPath)
@@ -145,13 +185,9 @@ class Ftp(object):
 			sublime.error_message(DIALOG_TITLE + 'Could not delete file \'' + fullFtpPath + '/' + currentFileName + '\':\n' + str(e))
 			return
 
-		self.session.quit()
-
-		del self.session
-
 		end = time.time()
 		ctime = datetime.datetime.now().strftime('%X')
-		msg = '[Deleted {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, os.path.basename(currentFullPath)).replace('\\', '/'), round((end - start)*1000))
+		msg = '[Deleted {0}]: {1} ({2}ms)'.format(ctime, os.path.join(fullFtpPath, currentFileName).replace('\\', '/'), round((end - start)*1000))
 		print(CONSOLE_PREFIX + msg)
 		sublime.status_message(msg)
 
@@ -196,7 +232,7 @@ class SaveEventListener(sublime_plugin.EventListener):
 
 # ==============
 # Delete file and folder, new folder and rename handlers
-# WARNING: HIGHLY EXPERIMENT, OVERRIDES DEFAULT DELETE HANDLERS (imported from side_bar.py from Default.sublime-package)
+# WARNING: HIGHLY EXPERIMENTAL, OVERRIDES DEFAULT DELETE HANDLERS (imported from side_bar.py from Default.sublime-package)
 # ==============
 from Default.side_bar import *
 import functools
