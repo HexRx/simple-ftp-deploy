@@ -74,7 +74,7 @@ class Ftp(object):
 
 	def checkSession(self):
 		if not hasattr(self, 'session'):
-			print(CONSOLE_PREFIX + 'WARNING: atempt to use session before \'connect()\', connecting')
+			print(CONSOLE_PREFIX + 'WARNING: attempt to use session before \'connect()\', connecting')
 			self.connect()
 
 	def connect(self):
