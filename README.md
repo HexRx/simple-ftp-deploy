@@ -88,7 +88,7 @@ List of folder names to ignore. The file is ingored, if it is in at least one of
 Whatever FTP session caching is enabled (only for time specified in `"connectionTimeout"`, extends if session is used in that time)
 
 `"connectionTimeout"` *number, optional (default: `600`)*  
-Sets timeout for FTP connections and for cache lifetime
+Sets timeout for FTP connections and for cache lifetime (in seconds)
 
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
