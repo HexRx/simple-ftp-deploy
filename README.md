@@ -1,6 +1,11 @@
 # Simple FTP Deploy
 > This package for Sublime Text 3 give you possibility to auto upload file to FTP server when you save local file.
 
+## Features
+- Upload to FTP server on local file save
+- Higly configurable
+- Auto creates directory if doesn't exists on server and auto delete files on local file delete (configurable; **BETA** - Please report any issues)
+
 ## How to Install
 
 ### Using [Package Control](https://packagecontrol.io)
@@ -10,7 +15,8 @@
 
 ### Manual
 1. Download the [.zip](https://github.com/HexRx/simple-ftp-deploy/archive/master.zip)
-2. Open `Packages` directory, which you can find using the Sublime Text menu item `Preferences -> Browse Packages...` and unzip the archive to this directory.
+2. Open `Packages` directory, which you can find using the Sublime Text menu item `Preferences -> Browse Packages...`
+3. Unzip the archive to this directory.
 
 ## How to Use
 
@@ -42,7 +48,9 @@ The format is [JSON](https://www.json.org), so every property consists of a key-
     "autoCreateDirectory": false,
     "ignoredFilenames": ["example.py", "anotherFilename.json"],
     "ignoredExtensions": [".ignore", ".txt"],
-    "ignoredFolders": ["ignore", "IGNORE"]
+    "ignoredFolders": ["ignore", "IGNORE"],
+    "sessionCacheEnabled": true,
+    "connectionTimeout": 600
 }
 ```
 
@@ -75,6 +83,12 @@ List of extensions to ignore. Note that it only check last extension (so `file.t
 
 `"ignoredFolders"` *array, optional (default: `[]`)*  
 List of folder names to ignore. The file is ingored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
+
+`"sessionCacheEnabled"` *boolean, optional (default: `true`)*  
+Whatever FTP session caching is enabled (only for time specified in `"connectionTimeout"`, extends if session is used in that time)
+
+`"connectionTimeout"` *number, optional (default: `600`)*  
+Sets timeout for FTP connections and for cache lifetime
 
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
