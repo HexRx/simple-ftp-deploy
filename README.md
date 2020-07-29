@@ -4,7 +4,7 @@
 ## Features
 - Upload to FTP server on local file save
 - Higly configurable
-- Auto creates directory if doesn't exists on server and auto delete files on local file delete (configurable; **BETA** - Please report any issues)
+- Auto creates directory if doesn't exists on server and auto delete files on local file delete (configurable; **BETA** - Please report any issues. If any problem occured, you can disable delete handler patching by setting `"enableDeleteHandler"` option to false in global settings (`Preferences -> Package Settings -> Simple FTP Deploy -> Settings - User`) and restarting Sublime Text)
 
 ## How to Install
 
