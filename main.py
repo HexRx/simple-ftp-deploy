@@ -221,7 +221,7 @@ class SaveEventListener(sublime_plugin.EventListener):
 							# Ignored extensions
 							if extension in getSetting('ignoredExtensions', []):
 								return
-							#Ignored folders
+							# Ignored folders
 							for folder in getSetting('ignoredFolders', []):
 								if folder in filename:
 									return
@@ -231,32 +231,32 @@ class SaveEventListener(sublime_plugin.EventListener):
 							ftp.uploadTo(openFolder, view.file_name())
 
 # ==============
-# Delete file and folder, new folder and rename handlers
+# Delete file and folder, new folder and rename handlers (in progress)
+# To disable this feature, please set `enableDeleteHandler` setting to false in global settings
 # WARNING: HIGHLY EXPERIMENTAL, OVERRIDES DEFAULT DELETE HANDLERS (imported from side_bar.py from Default.sublime-package)
 # ==============
-from Default.side_bar import *
-import functools
+if sublime.load_settings("simple-ftp-deploy.sublime-settings").get("enableDeleteHandler", True):
+	from Default.side_bar import *
+	import functools
 
-class DeleteFileCommand(sublime_plugin.WindowCommand):
-	def run(self, files):
+	DeleteFileCommand._original_run = DeleteFileCommand.run
+
+	def _new_DeleteFileCommand_run(self, files):
 		if len(files) == 1:
-			message = "Delete File %s from FTP too?" % files[0]
+			message = "Delete file %s from FTP too?" % files[0]
 		else:
-			message = "Delete %d Files from FTP too?" % len(files)
+			message = "Delete %d files from FTP too?" % len(files)
 
 		deleteFromFTP = False
 		if sublime.ok_cancel_dialog(message, "Delete") == True:
 			deleteFromFTP = True
 
-		# Import send2trash on demand, to avoid initialising ctypes for as long as possible
-		import Default.send2trash as send2trash
 		for f in files:
 			v = self.window.find_open_file(f)
 			if v != None and not v.close():
 				return
 
-			send2trash.send2trash(f)
-			# Delete from FTP too, if user accepts
+			# Delete from FTP, if user accepts
 			if not deleteFromFTP:
 				continue
 
@@ -287,14 +287,17 @@ class DeleteFileCommand(sublime_plugin.WindowCommand):
 								# Ignored extensions
 								if extension in getSetting('ignoredExtensions', []):
 									return
-								#Ignored folders
+								# Ignored folders
 								for folder in getSetting('ignoredFolders', []):
 									if folder in filename:
 										return
-								# Upload 
+								# Delete
 								ftp = Ftp(config['host'], getSetting('port', 21), config['username'], config['password'], getSetting('rootDirectory', ''))
 								ftp.connect()
 								ftp.deleteFile(openFolder, f)
+		# Call original method
+		DeleteFileCommand._original_run(self, files)
 
-	def is_visible(self, files):
-		return len(files) > 0
+	DeleteFileCommand.run = _new_DeleteFileCommand_run
+
+# Work in progress: rename and new folder handler
