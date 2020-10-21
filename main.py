@@ -149,6 +149,9 @@ class Ftp(object):
 		start = time.time()
 
 		fullFtpPath, currentFileName = self.parsePath(localRootDir, currentFullPath)
+		
+		if fullFtpPath == '':
+			fullFtpPath = '/'
 
 		file = open(currentFullPath, 'rb')
 		# Set ftp directory
