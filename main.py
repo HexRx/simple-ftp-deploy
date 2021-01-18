@@ -106,6 +106,10 @@ class Ftp(object):
 			return
 		# Not in cache, create new session
 		self.session = ftplib.FTP(timeout=getSetting("connectionTimeout",600))
+
+		# set passive mode based on setting or default to true
+		self.session.set_pasv(getSetting("passive", True))
+
 		try:
 			self.session.connect(self.host, self.port)
 		except ftplib.all_errors as e:

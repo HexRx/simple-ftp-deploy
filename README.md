@@ -50,7 +50,8 @@ The format is [JSON](https://www.json.org), so every property consists of a key-
     "ignoredExtensions": [".ignore", ".txt"],
     "ignoredFolders": ["ignore", "IGNORE"],
     "sessionCacheEnabled": true,
-    "connectionTimeout": 600
+    "connectionTimeout": 600,
+    "passive": true
 }
 ```
 
@@ -90,8 +91,12 @@ Whatever FTP session caching is enabled (only for time specified in `"connection
 `"connectionTimeout"` *number, optional (default: `600`)*  
 Sets timeout for FTP connections and for cache lifetime (in seconds)
 
+`"passive"` *boolean, optional (default: `true`)*
+Whether to connect to the FTP server in passive mode
+
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
+- [themiddlehalf](https://github.com/themiddlehalf)
 
 ## License
 The MIT License
