@@ -153,7 +153,7 @@ class Ftp(object):
 		start = time.time()
 
 		fullFtpPath, currentFileName = self.parsePath(localRootDir, currentFullPath)
-		
+
 		if fullFtpPath == '':
 			fullFtpPath = '/'
 
@@ -242,7 +242,12 @@ class SaveEventListener(sublime_plugin.EventListener):
 # To disable this feature, please set `enableDeleteHandler` setting to false in global settings
 # WARNING: HIGHLY EXPERIMENTAL, OVERRIDES DEFAULT DELETE HANDLERS (imported from side_bar.py from Default.sublime-package)
 # ==============
-if sublime.load_settings("simple-ftp-deploy.sublime-settings").get("enableDeleteHandler", True):
+
+# Disabled as it causes issues on Sublime Text 4
+
+ST = 3000 if sublime.version() == '' else int(sublime.version())
+
+if sublime.load_settings("simple-ftp-deploy.sublime-settings").get("enableDeleteHandler", False) and ST < 4000:
 	from Default.side_bar import *
 	import functools
 
