@@ -247,7 +247,7 @@ class SaveEventListener(sublime_plugin.EventListener):
 
 ST = 3000 if sublime.version() == '' else int(sublime.version())
 
-if sublime.load_settings("simple-ftp-deploy.sublime-settings").get("enableDeleteHandler", False) and ST < 4000:
+if sublime.load_settings("simple-ftp-deploy.sublime-settings").get("enableDeleteHandler", False) and ST <= 4000:
 	from Default.side_bar import *
 	import functools
 
