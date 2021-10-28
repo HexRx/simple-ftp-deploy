@@ -1,10 +1,11 @@
 # Simple FTP Deploy
-> This package for Sublime Text 3 give you possibility to auto upload file to FTP server when you save local file.
+> This package for [Sublime Text 3/4](https://www.sublimetext.com/) gives you possibility to automatically upload or delete files from FTP server when you save or delete local files and also execute custom triggers.
 
 ## Features
-- Upload to FTP server on local file save
-- Higly configurable
-- Auto creates directory if doesn't exists on server
+- Upload or delete files from FTP server when you locally save or delete files
+- Highly configurable
+- Automatically create directory if it doesn't exists on the server
+- Execute custom triggers on save / delete (see example usage [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522))
 
 ## How to Install
 
@@ -52,7 +53,14 @@ The format is [JSON](https://www.json.org), so every property consists of a key-
     "connectionTimeout": 600,
     "passive": true,
     "disabledEvents": ["deleteFile"],
-    "noPromptEvents": ["createFolder"]
+    "noPromptEvents": ["createFolder"],
+    "triggers": [
+        {
+            "on": "save",
+            "extensions": [".css", ".js"],
+            "execute": ".simple-ftp-deploy/minifier.py"
+        }
+    ]
 }
 ```
 
@@ -80,8 +88,8 @@ List of filenames, that are ignored and not uploaded. Note that `"simple-ftp-dep
 `"ignoredExtensions"` *array of strings, optional (default: `[]`)*  
 List of extensions to ignore. Note that it only check last extension (so `file.tar.gz` has extension `".gz"`) and if you want to ignore files like `.htaccess`, this file has no extension => use `"ignoredFilenames"` instead. **Case-sensitive**
 
-`"ignoredFolders"` *array of strings, optional (default: `[]`)*  
-List of folder names to ignore. The file is ingored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
+`"ignoredFolders"` *array oPf strings, optional (default: `[]`)*  
+List of folder names to ignore. The file is ignored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
 
 `"reuseSessions"` *boolean, optional (default: `true`)*  
 Whatever FTP session will be reused for next action (keeps session open for `"connectionTimeout"`; previously named `"sessionCacheEnabled"`).
@@ -99,6 +107,16 @@ Available events are: `"deleteFile"`
 `"noPromptEvents"` *array of strings, optional (default: `[]`)*  
 List of events that won't prompt you (for example if you do not want to click `Delete` every time you are asked if you want to delete file(s) from FTP server too)
 Available events are: `"deleteFile"`, `"createFolder"`
+
+`"triggers"` *array of triggers (objects), optional (default: `[]`)*  
+List of custom triggers to call when specific event happens. Each trigger can contain:
+
+* `"on"` *string* - When to call trigger (available values: `"save"` or `"delete"`).
+* `"extensions"` *array of string, optional* - For which file extensions call this trigger.
+* `"filenames"` *array of string, options* - For which filenames call this trigger.
+* `"execute"` *string* - Path (relative from project root) to python file to execute
+
+See example usage of triggers [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522)
 
 
 ## Contributors

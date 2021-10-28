@@ -54,6 +54,40 @@ def ignored(path, config):
 
 	return False
 
+def trigger_match(path, trigger):
+	filename, extension = os.path.splitext(path)
+
+	# Filenames
+	if 'filenames' in trigger and not os.path.basename(path) in trigger['filenames']:
+		return False
+
+	# Extensions
+	if 'extensions' in trigger and not extension in trigger['extensions']:
+		return False
+
+	return True
+
+def process_triggers(triggers, folder, filename, event, env = {}):
+	env['folder'], env['filename'] = folder, filename
+
+	for trigger in triggers:
+
+		if not 'on' in trigger or not 'execute' in trigger:
+			error('Missing required "on" and/or "file" option(s) in trigger configuration')
+			continue
+
+		if trigger['on'] == event and trigger_match(filename, trigger):
+			try:
+				env['__file__'] = os.path.join(folder, trigger['execute'])
+				with open(env['__file__'], 'r') as file:
+					try:
+						exec(file.read(), env)
+					except Exception as e:
+						error('Error executing trigger:\n' + str(e))
+			except Exception as e:
+				error('Error loading trigger file:\n' + str(e))
+
+
 def msg(message, *args):
 	message = message.format(datetime.datetime.now().strftime('%X'), *args)
 	print('[Simple FTP Deploy] ' + str(message))
@@ -163,8 +197,12 @@ class FTP(object):
 
 		return os.path.join(self.rootDir, localFilePath).replace('\\', '/'), os.path.basename(fullPath)
 
-	def exit(self):
-		if self.session and not self.config.get('reuseSessions', self.config.get('sessionCacheEnabled', True)):
+	def exit(self, force = False):
+		if force or (self.session and not self.config.get('reuseSessions', self.config.get('sessionCacheEnabled', True))):
+			# Remove session
+			for session in FTP_SESSIONS:
+				if session.session == self.session:
+					del session
 			self.session.quit()
 
 	def upload(self, localRootDir, currentFullPath):
@@ -244,10 +282,10 @@ class EventListener(sublime_plugin.EventListener):
 	def on_post_save_async(self, view):
 		window, filename = view.window(), view.file_name()
 		if window.project_data():
-			for openFolder in window.folders():
-				configFile = os.path.join(openFolder, CONFIG_FILE_NAME)
+			for folder in window.folders():
+				configFile = os.path.join(folder, CONFIG_FILE_NAME)
 				# Ignore config file, check if file is in opened folder and if config file exists in root folder
-				if openFolder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
+				if folder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
 					# Read the config
 					try:
 						config = Config(configFile)
@@ -256,36 +294,45 @@ class EventListener(sublime_plugin.EventListener):
 						return False
 
 					if not ignored(filename, config):
-						# Upload 
+						# Upload
 						ftp = FTP(config)
 						ftp.connect()
-						ftp.upload(openFolder, filename)
+						ftp.upload(folder, filename)
+
+						process_triggers(config.get('triggers', []), folder, filename, 'save', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+
 						ftp.exit()
 
 	def on_post_window_command(self, window, command, args):
 		if not window.project_data():
 			return
 
-		if command == 'delete_file' and not 'deleteFile' in config.get('disabledEvents', []):
+		if command == 'delete_file':
 			for filename in args['files']:
-				for openFolder in window.folders():
-					configFile = os.path.join(openFolder, CONFIG_FILE_NAME)
+				for folder in window.folders():
+					configFile = os.path.join(folder, CONFIG_FILE_NAME)
 					# Ignore config file, check if file is in opened folder and if config file exists in root folder
-					if openFolder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
+					if folder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
 						try:
 							config = Config(configFile)
 						except Exception as e:
 							error('Could not load config file:\n' + str(e))
 							return False
 
+						if 'deleteFile' in config.get('disabledEvents', []):
+							continue
+
 						if not 'deleteFile' in config.get('noPromptEvents', []) and not ask('Delete file %s from FTP too?' % filename, 'Delete'):
 							break
 
 						if not ignored(filename, config):
-							# Upload 
+							# Delete
 							ftp = FTP(config)
 							ftp.connect()
-							ftp.delete(openFolder, filename)
+							ftp.delete(folder, filename)
+
+							process_triggers(config.get('triggers', []), folder, filename, 'delete', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+
 							ftp.exit()
 
 						break
