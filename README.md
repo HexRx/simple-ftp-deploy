@@ -45,13 +45,14 @@ The format is [JSON](https://www.json.org), so every property consists of a key-
     "username": "user",
     "password": "pass",
     "rootDirectory": "/path/",
-    "autoCreateDirectory": false,
     "ignoredFilenames": ["example.py", "anotherFilename.json"],
     "ignoredExtensions": [".ignore", ".txt"],
     "ignoredFolders": ["ignore", "IGNORE"],
-    "sessionCacheEnabled": true,
+    "reuseSessions": true,
     "connectionTimeout": 600,
-    "passive": true
+    "passive": true,
+    "disabledEvents": ["deleteFile"],
+    "noPromptEvents": ["createFolder"]
 }
 ```
 
@@ -73,26 +74,32 @@ The password.
 The FTP path to deploy.  
 **Example:** in the root of FTP you have three folders `site1`, `site2`, `site3` and if you need to upload in `site2` folder, you must set this property to `/site2`, because if you skip this property, files will be upload to the root of FTP.
 
-`"autoCreateDirectory"` *boolean, optional (default: `false`)*  
-Whatever to automatically create a directory if doesn't exist and don't prompt user for acceptation.
-
-`"ignoredFilenames"` *array, optional (default: `[]`)*  
+`"ignoredFilenames"` *array of strings, optional (default: `[]`)*  
 List of filenames, that are ignored and not uploaded. Note that `"simple-ftp-deploy.json"` is ALWAYS ignored. **Case-sensitive**
 
-`"ignoredExtensions"` *array, optional (default: `[]`)*  
+`"ignoredExtensions"` *array of strings, optional (default: `[]`)*  
 List of extensions to ignore. Note that it only check last extension (so `file.tar.gz` has extension `".gz"`) and if you want to ignore files like `.htaccess`, this file has no extension => use `"ignoredFilenames"` instead. **Case-sensitive**
 
-`"ignoredFolders"` *array, optional (default: `[]`)*  
+`"ignoredFolders"` *array of strings, optional (default: `[]`)*  
 List of folder names to ignore. The file is ingored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
 
-`"sessionCacheEnabled"` *boolean, optional (default: `true`)*  
-Whatever FTP session caching is enabled (only for time specified in `"connectionTimeout"`, extends if session is used in that time).
+`"reuseSessions"` *boolean, optional (default: `true`)*  
+Whatever FTP session will be reused for next action (keeps session open for `"connectionTimeout"`; previously named `"sessionCacheEnabled"`).
 
 `"connectionTimeout"` *number, optional (default: `600`)*  
-Sets timeout for FTP connections and for cache lifetime (in seconds).
+Sets timeout for FTP connections (in seconds).
 
 `"passive"` *boolean, optional (default: `true`)*  
 Whether to connect to the FTP server in passive mode.
+
+`"disabledEvents"` *array of strings, optional (default: `[]`)*  
+List of events that will be disabled (for example if you do not want to click `Cancel` every time you are asked if you want to delete file(s) from FTP server too)
+Available events are: `"deleteFile"`
+
+`"noPromptEvents"` *array of strings, optional (default: `[]`)*  
+List of events that won't prompt you (for example if you do not want to click `Delete` every time you are asked if you want to delete file(s) from FTP server too)
+Available events are: `"deleteFile"`, `"createFolder"`
+
 
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
