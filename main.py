@@ -141,18 +141,20 @@ class FTP(object):
 
 		# If cached, return from cache
 		if self.reuseSessions:
-			for session in FTP_SESSIONS:
-				# Check if session expired
-				if session['timestamp'] + session['timeout'] < time.time():
-					del session
+			global FTP_SESSIONS
 
-				# Else check if it is correct entry
-				elif session['host'] == self.host and session['port'] == self.port and session['username'] == self.username and session['password'] == self.password:
+			# Remove expired sessions
+			FTP_SESSIONS = [session for session in FTP_SESSIONS if session['timestamp'] + session['timeout'] > time.time()]
+
+			for session in FTP_SESSIONS:
+				# Check if it is correct entry
+				if session['host'] == self.host and session['port'] == self.port and session['username'] == self.username and session['password'] == self.password:
 					self.session = session['session']
 
 					# This assumes, that we will use this session, maybe needs some change
 					session['timestamp'] = time.time()
 
+					# As the session is ready to use, we are done
 					return
 
 		# Create new session
