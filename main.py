@@ -283,27 +283,29 @@ class Config():
 class EventListener(sublime_plugin.EventListener):
 	def on_post_save_async(self, view):
 		window, filename = view.window(), view.file_name()
-		if window.project_data():
-			for folder in window.folders():
-				configFile = os.path.join(folder, CONFIG_FILE_NAME)
-				# Ignore config file, check if file is in opened folder and if config file exists in root folder
-				if folder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
-					# Read the config
-					try:
-						config = Config(configFile)
-					except Exception as e:
-						error('Could not load config file:\n' + str(e))
-						return False
+		if not window.project_data():
+			return
 
-					if not ignored(filename, config):
-						# Upload
-						ftp = FTP(config)
-						ftp.connect()
-						ftp.upload(folder, filename)
+		for folder in window.folders():
+			configFile = os.path.join(folder, CONFIG_FILE_NAME)
+			# Ignore config file, check if file is in opened folder and if config file exists in root folder
+			if folder in filename and os.path.basename(filename) != CONFIG_FILE_NAME and os.path.isfile(configFile):
+				# Read the config
+				try:
+					config = Config(configFile)
+				except Exception as e:
+					error('Could not load config file:\n' + str(e))
+					return False
 
-						process_triggers(config.get('triggers', []), folder, filename, 'save', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+				if not ignored(filename, config):
+					# Upload
+					ftp = FTP(config)
+					ftp.connect()
+					ftp.upload(folder, filename)
 
-						ftp.exit()
+					process_triggers(config.get('triggers', []), folder, filename, 'save', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+
+					ftp.exit()
 
 	def on_post_window_command(self, window, command, args):
 		if not window.project_data():
