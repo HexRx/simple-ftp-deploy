@@ -88,7 +88,7 @@ List of filenames, that are ignored and not uploaded. Note that `"simple-ftp-dep
 `"ignoredExtensions"` *array of strings, optional (default: `[]`)*  
 List of extensions to ignore. Note that it only check last extension (so `file.tar.gz` has extension `".gz"`) and if you want to ignore files like `.htaccess`, this file has no extension => use `"ignoredFilenames"` instead. **Case-sensitive**
 
-`"ignoredFolders"` *array oPf strings, optional (default: `[]`)*  
+`"ignoredFolders"` *array of strings, optional (default: `[]`)*  
 List of folder names to ignore. The file is ignored, if it is in at least one of the specified folders (so `folder1/folder2/file.py` is ignored if `"ignoredFolders"` contains `"folder1"` and/or `"folder2"`). **Case-sensitive**
 
 `"reuseSessions"` *boolean, optional (default: `true`)*  
@@ -112,8 +112,8 @@ Available events are: `"deleteFile"`, `"createFolder"`
 List of custom triggers to call when specific event happens. Each trigger can contain:
 
 * `"on"` *string* - When to call trigger (available values: `"save"` or `"delete"`).
-* `"extensions"` *array of string, optional* - For which file extensions call this trigger.
-* `"filenames"` *array of string, options* - For which filenames call this trigger.
+* `"extensions"` *array of string, optional* - For which file extensions call this trigger. See `"ignoredExtension"` for more info.
+* `"filenames"` *array of string, options* - For which filenames call this trigger. See `"ignoredFilenames"` for more info.
 * `"execute"` *string* - Path (relative from project root) to python file to execute
 
 See example usage of triggers [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522)
