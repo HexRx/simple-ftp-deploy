@@ -28,6 +28,7 @@ import datetime
 import ftplib
 import json
 import os
+import sys
 import time
 
 REQUIRED_FIELDS = ['host', 'username', 'password']
@@ -93,12 +94,32 @@ def msg(message, *args):
 	print('[Simple FTP Deploy] ' + str(message))
 	sublime.status_message(message)
 
+def warning(message):
+	print('[Simple FTP Deploy] [WARNING] ' + str(message))
+	sublime.error_message('Simple FTP Deploy\n\n' + str(message))
+
 def error(message):
 	print('[Simple FTP Deploy] [ERROR] ' + str(message))
-	sublime.error_message('Simple FTP Deploy\n' + str(message))
+	sublime.error_message('Simple FTP Deploy\n\n' + str(message))
 
 def ask(question, okLabel = 'Ok'):
-	return sublime.ok_cancel_dialog('Simple FTP Deploy\n' + str(question), okLabel)
+	return sublime.ok_cancel_dialog('Simple FTP Deploy\n\n' + str(question), okLabel)
+
+useFixedTLS = False
+if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
+	useFixedTLS = True
+	# https://stackoverflow.com/a/43301750
+	class Fixed_FTP_TLS(ftplib.FTP_TLS):
+		def ntransfercmd(self, cmd, rest=None):
+			conn, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
+			if self._prot_p:
+				conn = self.context.wrap_socket(conn, server_hostname=self.host, session=self.sock.session)
+			return conn, size
+else:
+	unfixedTLS = 'You are using TLS mode, but there are some known issues with this mode in older versions of Python bundled with Sublime Text 3.\n\n\
+In case something is not working correctly, either disable TLS mode or upgrade to Sublime Text 4.\n\n\
+However if everything is working correctly, add following line to you configuration to hide this message.\n\n\
+"noUnfixedTLSWarning": true'
 
 class FTP(object):
 	def __init__(self, config):
@@ -110,6 +131,7 @@ class FTP(object):
 		self.password = config.get('password')
 		self.rootDir = config.get('rootDirectory', '')
 		self.timeout = config.get('connectionTimeout', 600)
+		self.TLS = config.get('useTLS', False)
 
 		self.reuseSessions = config.get('reuseSessions', config.get('sessionCacheEnabled', True))
 
@@ -148,7 +170,7 @@ class FTP(object):
 
 			for session in FTP_SESSIONS:
 				# Check if it is correct entry
-				if session['host'] == self.host and session['port'] == self.port and session['username'] == self.username and session['password'] == self.password:
+				if session['host'] == self.host and session['port'] == self.port and session['username'] == self.username and session['password'] == self.password and session['TLS'] == self.TLS:
 					self.session = session['session']
 
 					# This assumes, that we will use this session, maybe needs some change
@@ -158,7 +180,18 @@ class FTP(object):
 					return
 
 		# Create new session
-		self.session = ftplib.FTP(timeout = self.timeout)
+		if self.TLS:
+			global useFixedTLS
+			if useFixedTLS:
+				self.session = Fixed_FTP_TLS(timeout = self.timeout)
+			else:
+				global unfixedTLS
+				if unfixedTLS and not self.config.get('noUnfixedTLSWarning', False):
+					warning(unfixedTLS)
+					unfixedTLS = None
+				self.session = ftplib.FTP_TLS(timeout = self.timeout)
+		else:
+			self.session = ftplib.FTP(timeout = self.timeout)
 
 		# Set passive mode based on setting or default to true
 		self.session.set_pasv(self.config.get('passive', True))
@@ -169,6 +202,15 @@ class FTP(object):
 		except ftplib.all_errors as e:
 			error('Could not connect to ' + self.host + ':' + str(self.port) + '\n' + str(e))
 			return
+
+		# Secure with TLS
+		if self.TLS:
+			try:
+				self.session.auth()
+				self.session.prot_p()
+			except ftplib.all_errors as e:
+				error('Could not secure data connection\n' + str(e))
+				return
 
 		# Try to login
 		try:
@@ -190,6 +232,7 @@ class FTP(object):
 				'password': self.password,
 				'timestamp': time.time(),
 				'timeout': self.timeout,
+				'TLS': self.TLS,
 				'session': self.session
 			})
 

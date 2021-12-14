@@ -3,6 +3,7 @@
 
 ## Features
 - Upload or delete files from FTP server when you locally save or delete files
+- TLS support
 - Highly configurable
 - Automatically create directory if it doesn't exists on the server
 - Execute custom triggers on save / delete (see example usage [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522))
@@ -28,7 +29,7 @@
 
 ## Configuration
 
-Example `simple-ftp-deploy.json` file:
+Minimal `simple-ftp-deploy.json` file:
 ```json
 {
     "host": "localhost",
@@ -38,11 +39,11 @@ Example `simple-ftp-deploy.json` file:
 ```
 
 ### Format
-The format is [JSON](https://www.json.org), so every property consists of a key-value pair
+The format is [JSON](https://www.json.org), so every property consists of a key-value pair:
 ```json
 {
     "host": "localhost",
-    "port": 21, 
+    "port": 21,
     "username": "user",
     "password": "pass",
     "rootDirectory": "/path/",
@@ -52,6 +53,7 @@ The format is [JSON](https://www.json.org), so every property consists of a key-
     "reuseSessions": true,
     "connectionTimeout": 600,
     "passive": true,
+    "useTLS": true,
     "disabledEvents": ["deleteFile"],
     "noPromptEvents": ["createFolder"],
     "triggers": [
@@ -99,6 +101,9 @@ Sets timeout for FTP connections (in seconds).
 
 `"passive"` *boolean, optional (default: `true`)*  
 Whether to connect to the FTP server in passive mode.
+
+`"useTLS"` *boolean, optional (default: `false`)*  
+Whether to connect to the FTP server with TLS connection (May not work correctly in Sublime Text 3).
 
 `"disabledEvents"` *array of strings, optional (default: `[]`)*  
 List of events that will be disabled (for example if you do not want to click `Cancel` every time you are asked if you want to delete file(s) from FTP server too)
