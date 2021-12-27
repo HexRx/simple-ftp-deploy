@@ -141,8 +141,14 @@ class FTP(object):
 
 	# I think, there is easier way to do this...
 	# CDs to given directory, creating directories if needed
-	def cdRecursivelly(self, directory, prompt = True):
+	def cdRecursivelly(self, path, prompt = True, step = 1, splitPath = None):
 		self.checkSession()
+
+		if not splitPath:
+			splitPath = path.split('/')
+
+		directory = '/'.join(splitPath[:step])
+
 		try:
 			self.session.cwd(directory)
 		except ftplib.all_errors as e:
@@ -150,13 +156,17 @@ class FTP(object):
 				error('Could not set current working directory to "' + directory + '"\n' + str(e))
 				return False
 			if prompt:
-				if not ask('Directory "' + directory + '" does not exists, do you want to create it?', 'Yes'):
+				if not ask('Directory "' + path + '" does not exists, do you want to create it?', 'Yes'):
 					return False
+				# Ask only once for whole directory structure creation
+				prompt = False
 			self.session.mkd(directory)
 			self.session.cwd(directory)
-			self.cdRecursivelly('/'.join(directory.split('/')[:-1]), False)
 
-		return True
+		if step < len(splitPath):
+			return self.cdRecursivelly(path, prompt, step + 1, splitPath)
+		else:
+			return True
 
 	def connect(self):
 		start = time.time()
