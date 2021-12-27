@@ -261,7 +261,8 @@ class FTP(object):
 			fullFtpPath = '/'
 
 		# Set FTP directory recursively, so we ensure that directory exists
-		if not self.cdRecursivelly(fullFtpPath, prompt = not 'createDirectory' in self.config.get('noPromptEvents', [])):
+		prompt = not ('createDirectory' in self.config.get('noPromptEvents', []) or 'createFolder' in self.config.get('noPromptEvents', []))
+		if not self.cdRecursivelly(fullFtpPath, prompt = prompt):
 			error('Could not set working directory to "' + fullFtpPath + '"')
 			return
 
