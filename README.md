@@ -38,6 +38,8 @@ Minimal `simple-ftp-deploy.json` file:
 }
 ```
 
+**Note:** Password is optional. If omitted, you will be asked for it once needed.
+
 ### Format
 The format is [JSON](https://www.json.org), so every property consists of a key-value pair:
 ```json
@@ -77,8 +79,8 @@ The port of the FTP server.
 `"username"` *string*  
 The username.
 
-`"password"` *string*  
-The password.
+`"password"` *string, optional*  
+The password. If not given, you will be asked for it once needed.
 
 `"rootDirectory"` *string, optional (default: `"/"`)*  
 The FTP path to deploy.  
