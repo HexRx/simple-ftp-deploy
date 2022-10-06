@@ -31,11 +31,13 @@ import os
 import sys
 import time
 
-REQUIRED_FIELDS = ['host', 'username', 'password']
+REQUIRED_FIELDS = ['host', 'username']
 
 CONFIG_FILE_NAME = 'simple-ftp-deploy.json'
 
 FTP_SESSIONS = []
+
+SAVED_LOGINS = {}
 
 def ignored(path, config):
 	filename, extension = os.path.splitext(path)
@@ -128,7 +130,13 @@ class FTP(object):
 		self.host = config.get('host')
 		self.port = config.get('port', 21)
 		self.username = config.get('username')
-		self.password = config.get('password')
+
+		if not config.get('password'):
+			if (config.get('host'), config.get('port', 21), config.get('username')) in SAVED_LOGINS:
+				self.password = SAVED_LOGINS[(self.host, self.port, self.username)]
+		else:
+			self.password = config.get('password')
+
 		self.rootDir = config.get('rootDirectory', '')
 		self.timeout = config.get('connectionTimeout', 600)
 		self.TLS = config.get('useTLS', False)
@@ -187,7 +195,7 @@ class FTP(object):
 					session['timestamp'] = time.time()
 
 					# As the session is ready to use, we are done
-					return
+					return True
 
 		# Create new session
 		if self.TLS:
@@ -211,7 +219,7 @@ class FTP(object):
 			self.session.connect(self.host, self.port)
 		except ftplib.all_errors as e:
 			error('Could not connect to ' + self.host + ':' + str(self.port) + '\n' + str(e))
-			return
+			return False
 
 		# Secure with TLS
 		if self.TLS:
@@ -226,8 +234,12 @@ class FTP(object):
 		try:
 			self.session.login(self.username, self.password)
 		except ftplib.all_errors as e:
+			# If it happened from saved logins, discard it, so it would ask for new password again
+			if (self.host, self.port, self.username) in SAVED_LOGINS:
+				SAVED_LOGINS.pop((self.host, self.port, self.username))
+
 			error('Could not login to ' + self.host + ':' + str(self.port) + '\n' + str(e))
-			return
+			return False
 
 		end = time.time()
 
@@ -245,6 +257,8 @@ class FTP(object):
 				'TLS': self.TLS,
 				'session': self.session
 			})
+
+		return True
 
 	def parsePath(self, rootDir, fullPath):
 		# Remove full path and remove \
@@ -333,6 +347,9 @@ class Config():
 	def get(self, name, defaultValue = None):
 		return self.config[name] if self.config and name in self.config else defaultValue
 
+	def has(self, name):
+		return self.config and name in self.config
+
 # Save file event listener
 class EventListener(sublime_plugin.EventListener):
 	def on_post_save_async(self, view):
@@ -353,13 +370,24 @@ class EventListener(sublime_plugin.EventListener):
 
 				if not ignored(filename, config):
 					# Upload
-					ftp = FTP(config)
-					ftp.connect()
-					ftp.upload(folder, filename)
+					def run():
+						ftp = FTP(config)
+						if ftp.connect():
+							ftp.upload(folder, filename)
 
-					process_triggers(config.get('triggers', []), folder, filename, 'save', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+							process_triggers(config.get('triggers', []), folder, filename, 'save', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
 
-					ftp.exit()
+							ftp.exit()
+
+					if not config.has('password') and (config.get('host'), config.get('port', 21), config.get('username')) not in SAVED_LOGINS:
+						def on_password_done(input):
+							SAVED_LOGINS[(config.get('host'), config.get('port', 21), config.get('username'))] = input
+
+							run()
+
+						window.show_input_panel('FTP Password', '', on_password_done, None, None)
+					else:
+						run()
 
 	def on_post_window_command(self, window, command, args):
 		if not window.project_data():
@@ -385,13 +413,26 @@ class EventListener(sublime_plugin.EventListener):
 
 						if not ignored(filename, config):
 							# Delete
-							ftp = FTP(config)
-							ftp.connect()
-							ftp.delete(folder, filename)
+							def run():
+								ftp = FTP(config)
+								if ftp.connect():
+									ftp.delete(folder, filename)
 
-							process_triggers(config.get('triggers', []), folder, filename, 'delete', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
+									process_triggers(config.get('triggers', []), folder, filename, 'delete', {'ftp': ftp, 'config': config, 'sublime': sublime, 'msg': msg, 'error': error, 'ask': ask})
 
-							ftp.exit()
+									ftp.exit()
+
+							# Upload
+							if not config.has('password') and (config.get('host'), config.get('port', 21), config.get('username')) not in SAVED_LOGINS:
+								def on_password_done(input):
+									SAVED_LOGINS[(config.get('host'), config.get('port', 21), config.get('username'))] = input
+
+									run()
+
+
+								window.show_input_panel('FTP Password', '', on_password_done, None, None)
+							else:
+								run()
 
 						break
 
