@@ -6,7 +6,7 @@
 - TLS support
 - Highly configurable
 - Automatically create directory if it doesn't exists on the server
-- Execute custom triggers on save / delete (see example usage [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522))
+- Trigger custom actions, such as run JS or CSS minification scripts, upon saving or deleting files
 
 ## How to Install
 
@@ -116,15 +116,14 @@ List of events that won't prompt you (for example if you do not want to click `D
 Available events are: `"deleteFile"`, `"createFolder"`
 
 `"triggers"` *array of triggers (objects), optional (default: `[]`)*  
-List of custom triggers to call when specific event happens. Each trigger can contain:
+List of custom triggers to run specific scripts when a certain event occurs. For instance, you can execute scripts to minify JS or CSS files upon the occurrence of certain events. To view an example of trigger usage with [css-html-js-minify](https://github.com/juancarlospaco/css-html-js-minify) script, please refer to this [link](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522). 
+
+Each trigger can contain:
 
 * `"on"` *string* - When to call trigger (available values: `"save"` or `"delete"`).
 * `"extensions"` *array of string, optional* - For which file extensions call this trigger. See `"ignoredExtension"` for more info.
 * `"filenames"` *array of string, options* - For which filenames call this trigger. See `"ignoredFilenames"` for more info.
 * `"execute"` *string* - Path (relative from project root) to python file to execute
-
-See example usage of triggers [here](https://gist.github.com/Aiq0/790aa5f04209e5b049138445fd79c522)
-
 
 ## Contributors
 - [Aiq0](https://github.com/Aiq0)
